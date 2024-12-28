@@ -1,0 +1,115 @@
+.chat-widget {
+    width: 100%;
+    max-width: 500px;
+    margin: 20px auto;
+    height: 90vh;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: 'Roboto', sans-serif;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #f7f7f7;
+    overflow: hidden;
+    min-width: 700px;
+    
+}
+
+.chat-header {
+    background: #00b4d8;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.chat-body {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    position: relative; /* Needed for positioning the overlay */
+
+    background-image: url('./image.jpg'); /* Path to image */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+
+.message {
+    max-width: 70%;
+    padding: 0 12px;
+    margin: 10px 0;
+    border-radius: 12px;
+    font-size: 1rem;
+    word-wrap: break-word;
+}
+
+.user {
+    background-color: #023e8a;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.assistant {
+    background-color: #caf0f8;
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+
+.chat-footer {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #f1f1f1;
+}
+
+.chat-footer input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 25px;
+    margin-right: 10px;
+    font-size: 1rem;
+}
+
+.chat-footer button {
+    background-color: #0077b6;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    height: 40px;
+    width: 40px;
+}
+
+.image-upload-button {
+    background-color: #0077b6;
+    color: white;
+    padding: 10px;
+    border-radius: 50%;
+    margin-right: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-body::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 122, 182, 0.7);
+    border-radius: 5px;
+}
