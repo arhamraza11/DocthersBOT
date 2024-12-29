@@ -28,7 +28,7 @@ const ChatWidget = () => {
         if (image) formData.append('image', image);
     
         try {
-            const response = await axios.post('http://localhost:5000/generate-response', formData, {
+            const response = await axios.post(window.location.protocol+'//'+window.location.hostname+':5000/generate-response', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
     
