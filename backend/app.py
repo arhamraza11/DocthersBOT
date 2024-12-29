@@ -4,6 +4,9 @@ from flask import Flask, request, jsonify
 import google.generativeai as generativeai
 from PIL import Image
 from flask_cors import CORS
+from qdrant_client import QdrantClient, models
+from sentence_transformers import SentenceTransformer
+from PyPDF2 import PdfReader  # For PDF reading
 
 app = Flask(__name__)
 CORS(app)
@@ -77,29 +80,60 @@ user_info_context = {
     ]
 }
 
-def count_tokens(text):
-    return len(text.split())
+# Configure Qdrant client to use remote cluster
+QDRANT_API_URL = os.getenv("QDRANT_API_URL")# Replace with your actual Qdrant cluster URL
+API_KEY = os.getenv("QDRANT_API_KEY")  # Replace with your Qdrant API key
+qdrant_client = QdrantClient(
+    url=QDRANT_API_URL,
+    api_key=API_KEY
+)
 
+# Initialize the sentence transformer model
+encoder = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+
+# Function to index medical PDF documents in Qdrant
+
+
+
+# Function to retrieve similar documents based on a query
+collection_name='medical_documents'
+model = SentenceTransformer('all-MiniLM-L6-v2')
+def search_pdf(query):
+    query_embedding = model.encode(query)
+    search_result = qdrant_client.search(
+        collection_name=collection_name,
+        query_vector=query_embedding,
+        limit=1
+    )
+    return search_result
+
+# Function to generate a response based on the medical document context
+def generate_medical_response(query, search_results):
+    model = generativeai.GenerativeModel("gemini-1.5-flash")
+    context = "\n\n".join([f"Document Excerpt: {hit.payload['page_text'][:300]}" for hit in search_results])
+    user_context_info = (
+                    f"User Info: Name: {user_info_context['name']}, "
+                    f"Contact No: {user_info_context['contact_no']}, "
+                    f"Designation: {user_info_context['designation']}, "
+                    f"Policies: {user_info_context['policies']}, "
+                    f"Dependents: {user_info_context['dependents']}, "
+                    f"Claims: {user_info_context['claims']} "
+                )
+    full_prompt = f"Respond as if you are from the company DoctHers. Regards should always end from DoctHers Bot .if there is context so use context to answer the user in a professional manner. do not give respond other than claims user info and other things.{query}"+f"\n\nUser query: {query}\n\nContext:\n{context}\n\nResponse:"+f"\n\nUser Details Info:\n{user_context_info}\n\nDoctHers Bot"
+   
+
+    # Generate response using LLM (Google Gemini API)
+    response = model.generate_content([full_prompt])
+    return response.text.strip()
+
+# Function to determine if the text indicates a claim request
 def is_claim_request(text):
     model = generativeai.GenerativeModel("gemini-1.5-flash")
     prompt = f"Determine if the following text indicates a claim request means user is asking for creating a claim then only Return single word 'true' if it does, otherwise return false. Text: {text}"
     response = model.generate_content([prompt])
     return "true" in response.text.lower()
-
-def llmresponse(prompt, image_path=None):
-    model = generativeai.GenerativeModel("gemini-1.5-flash")
-    user_input = f"Respond as if you are from the company DoctHers.Regards should always end from DoctHers Bot {prompt}"
-    
-    if image_path:
-        with Image.open(image_path) as img:
-            response = model.generate_content([user_input, img])
-    else:
-        response = model.generate_content([user_input])
-    
-    # Clean up asterisks from the response text
-    response_text = response.text.replace('*', '')
-    
-    return response_text
 
 @app.route('/generate-response', methods=['POST'])
 def generate_response():
@@ -150,47 +184,20 @@ def generate_response():
                 }
                 response_text = 'Claim created successfully!'
         else:
+            # First, check if the prompt relates to a claim request
             if is_claim_request(prompt):
                 claim_creation_state['active'] = True
                 response_text = 'I can help you with creating a claim. Please provide the details to continue.'
             else:
-                # Update conversation history
-                if prompt:
-                    conversation_history.append(f"User: {prompt}")
+                # Retrieve similar documents from Qdrant based on the user's query
+                search_results = search_pdf(prompt)
 
-                # Include user context in the prompt
-                user_context_info = (
-                    f"User Info: Name: {user_info_context['name']}, "
-                    f"Contact No: {user_info_context['contact_no']}, "
-                    f"Designation: {user_info_context['designation']}, "
-                    f"Policies: {user_info_context['policies']}, "
-                    f"Dependents: {user_info_context['dependents']}, "
-                    f"Claims: {user_info_context['claims']} "
-                )
-                context = "\n".join(conversation_history)
-                full_prompt = f"{user_context_info}\n{context}\nAssistant:"
-                
-                # Ensure context does not exceed the token limit
-                if count_tokens(full_prompt) > TOKEN_LIMIT:
-                    while count_tokens(full_prompt) > TOKEN_LIMIT:
-                        conversation_history.pop(0)
-                        context = "\n".join(conversation_history)
-                        full_prompt = f"{user_context_info}\n{context}\nAssistant:"
-
-                image_path = None
-                if image:
-                    image_path = "uploaded_image.png"
-                    image.save(image_path)
-                
-                # Generate LLM response
-                response_text = llmresponse(full_prompt, image_path)
-
-                # Append assistant's response to history
-                conversation_history.append(f"Assistant: {response_text}")
-
-                # Cleanup uploaded image if it was saved
-                if image_path:
-                    os.remove(image_path)
+                if search_results:
+                    print(search_results)
+                    response_text = generate_medical_response(prompt, search_results)
+                else:
+                    print(search_results)
+                    response_text = generate_medical_response(prompt,"")
 
         return jsonify({'response': response_text})
 
@@ -199,4 +206,6 @@ def generate_response():
         return jsonify({'response': 'An error occurred while processing your request.'}), 500
 
 if __name__ == "__main__":
+    # Example: Index a sample document
+    
     app.run(debug=True)
